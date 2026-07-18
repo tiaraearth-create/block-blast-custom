@@ -1,0 +1,14 @@
+{
+  "name": "ブロックブラスト・カスタム",
+  "short_name": "ブロブラ",
+  "description": "8×8盤面のブロックパズル。AI対戦・チーム戦・隠しボス搭載のカスタム版。",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1030",
+  "theme_color": "#0d1030",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
