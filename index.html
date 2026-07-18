@@ -550,7 +550,6 @@
       <button class="btn" data-action="goto-custom">カスタムモード</button>
       <button class="btn" data-action="goto-settings">設定</button>
       <button class="btn god-btn" id="god-mode-btn" data-action="start-god" style="display:none">👑 ゴッドモード</button>
-      <button class="btn boss-menu-btn" id="boss-btn" data-action="start-boss" style="display:none">◆ 終焉 -THE END-</button>
     </div>
     <div class="menu-sub-row">
       <button class="btn text-btn" data-action="show-howto">❓ あそびかた</button>
@@ -628,7 +627,12 @@
         <div class="toggle" data-toggle="specialsOn" data-scope="vs"></div>
       </div>
     </div>
-    <button class="btn vs-btn" style="width:min(330px,88%); margin:14px 0 24px" data-action="start-vs">⚔️ 対戦スタート</button>
+    <button class="btn vs-btn" style="width:min(330px,88%); margin:14px 0 10px" data-action="start-vs">⚔️ 対戦スタート</button>
+
+    <div class="section-label" id="boss-label" style="display:none; color:#ff2e4d">◆ 最深部</div>
+    <button class="btn boss-menu-btn" id="boss-btn" data-action="start-boss" style="display:none; width:min(330px,88%); margin-top:10px">◆ 終焉 -THE END-</button>
+    <div id="boss-hall" style="display:none; font-size:12px; color:#ff2e4d; text-align:center; margin:8px 0 24px; line-height:1.8"></div>
+    <div style="height:14px"></div>
   </div>
 
   <!-- ===== チーム戦設定 ===== -->
@@ -1886,7 +1890,11 @@ function vsEnd(playerWon, reason) {
     save.vsRec[playerWon ? "wins" : "losses"]++;
     if (playerWon) {
       unlockAch("aiwin");
-      if (save.vsCfg.aiLevel === "max") unlockAch("aimaxwin");
+      if (save.vsCfg.aiLevel === "max") {
+        const firstMax = !save.ach.aimaxwin;
+        unlockAch("aimaxwin");
+        if (firstMax) setTimeout(() => bossSpeak("……AI対戦の最深部で、何かが目を覚ました。"), 2200);
+      }
     }
     persist();
     document.getElementById("gameover-title").textContent = playerWon ? "🏆 勝利！" : "😢 敗北…";
@@ -3250,8 +3258,6 @@ function quitToMenu() {
 }
 function updateMenu() {
   document.getElementById("god-mode-btn").style.display = save.godUnlocked ? "block" : "none";
-  // 「さいきょう」を倒した者だけが終焉に出会える
-  document.getElementById("boss-btn").style.display = save.ach.aimaxwin ? "block" : "none";
   const rb = document.getElementById("resume-btn");
   if (save.resume) {
     rb.style.display = "block";
@@ -3262,11 +3268,6 @@ function updateMenu() {
   let html = `通常ベスト <b>${b.normal.toLocaleString()}</b>　カスタムベスト <b>${b.custom.toLocaleString()}</b>`;
   html += `<br>🤖 AI対戦 <b>${save.vsRec.wins}</b>勝<b>${save.vsRec.losses}</b>敗　👥 チーム戦 <b>${save.teamRec.wins}</b>勝<b>${save.teamRec.losses}</b>敗`;
   if (save.godUnlocked) html += `<br>👑 ゴッドベスト <b>${b.god.toLocaleString()}</b>`;
-  if (save.ach.aimaxwin && save.bossRec.attempts > 0) {
-    html += `<br><span style="color:#ff2e4d">◆ 終焉殿堂：挑戦 <b>${save.bossRec.attempts}</b>・討伐 <b>${save.bossRec.wins}</b>`;
-    if (save.bossRec.firstWinAttempt) html += `（${save.bossRec.firstWinAttempt}回目の挑戦で初討伐）`;
-    html += `</span>`;
-  }
   document.getElementById("menu-best").innerHTML = html;
 }
 function formatValue(key, v) {
@@ -3284,6 +3285,19 @@ function updateSettingsUI() {
     const key = s.dataset.stepper;
     s.querySelector(".stepval").textContent = formatValue(key, scopeObj(s.dataset.scope)[key]);
   });
+  // 終焉：「さいきょう」を倒した者だけがAI対戦の最深部で出会える
+  const bossOn = !!save.ach.aimaxwin;
+  document.getElementById("boss-label").style.display = bossOn ? "block" : "none";
+  document.getElementById("boss-btn").style.display = bossOn ? "block" : "none";
+  const hall = document.getElementById("boss-hall");
+  if (bossOn && save.bossRec.attempts > 0) {
+    hall.style.display = "block";
+    let h = `◆ 殿堂：挑戦 ${save.bossRec.attempts}回・討伐 ${save.bossRec.wins}回`;
+    if (save.bossRec.firstWinAttempt) h += `<br>（${save.bossRec.firstWinAttempt}回目の挑戦で初討伐）`;
+    hall.innerHTML = h;
+  } else {
+    hall.style.display = "none";
+  }
   // 討伐報酬：隠しテーマ「◆ 漆黒」
   const ts = document.getElementById("theme-select");
   if (save.voidUnlocked && !ts.querySelector('option[value="void"]')) {
