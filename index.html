@@ -380,9 +380,9 @@
   @keyframes toastOut { to { opacity:0; transform:translateY(-20px) scale(.85); } }
 
   /* ============ オーバーレイ ============ */
-  .overlay { position:absolute; inset:0; background: color-mix(in srgb, var(--bg1) 72%, transparent);
+  .overlay { position:fixed; inset:0; background: color-mix(in srgb, var(--bg1) 72%, transparent);
     backdrop-filter: blur(10px); display:none; flex-direction:column; align-items:center; justify-content:center;
-    z-index:50; border-radius:14px; overflow:hidden; }
+    z-index:50; overflow:hidden; }
   .overlay.active { display:flex; animation: overlayIn .4s cubic-bezier(.22,1,.36,1); }
   @keyframes overlayIn { from { opacity:0; } }
   .overlay .panel-card { display:flex; flex-direction:column; align-items:center; padding:30px 36px; border-radius:24px;
@@ -3709,6 +3709,28 @@ document.body.dataset.theme = save.theme;
 updateMenu();
 updateSettingsUI();
 BGM.want = "menu";
+
+// BGMを起動した瞬間から鳴らす：
+// まずは即時再生を試み（自動再生が許可されていれば鳴る）、
+// ブロックされた場合は最初のタッチ・クリック・キー入力で即座に鳴らす
+function tryStartBgm() {
+  if (BGM.interacted) return;
+  try {
+    const ctx = ac();
+    const go = () => {
+      if (ctx.state === "running" && !BGM.interacted) {
+        BGM.interacted = true;
+        BGM.refresh();
+      }
+    };
+    if (ctx.state === "running") go();
+    else ctx.resume().then(go).catch(() => {});
+  } catch {}
+}
+tryStartBgm(); // 起動直後に挑戦
+window.addEventListener("load", tryStartBgm);
+["pointerdown", "touchstart", "keydown"].forEach(ev =>
+  document.addEventListener(ev, tryStartBgm, { capture: true }));
 
 // PWA：Service Worker 登録（https で公開されたときだけ有効。file:// では何もしない）
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
