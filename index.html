@@ -524,6 +524,14 @@
   @keyframes biFade { to { opacity:1; } }
   @keyframes biName { 0% { opacity:0; transform:scale(1.6); filter:blur(8px); } 100% { opacity:1; transform:scale(1); filter:blur(0); } }
   #board.boss-glare { box-shadow: 0 14px 44px var(--shadow), 0 0 44px #ff2e4d55, inset 0 0 24px #ff2e4d22; }
+  .stepval.charge { animation: chargeShake .3s; color:#ff2e4d !important; }
+  @keyframes chargeShake { 0%,100%{transform:translate(0)} 20%{transform:translate(-3px,1px)} 45%{transform:translate(3px,-2px)} 70%{transform:translate(-2px,-1px)} 90%{transform:translate(2px,1px)} }
+  .boss-menu-btn.revealing { animation: bossAppear 1.2s cubic-bezier(.22,1,.36,1), bossBreath 3.2s 1.2s ease-in-out infinite; }
+  @keyframes bossAppear {
+    0% { opacity:0; transform:scale(.25) rotate(-4deg); filter:blur(16px) brightness(4); }
+    55% { opacity:1; transform:scale(1.12) rotate(1deg); filter:blur(0) brightness(1.8); }
+    100% { opacity:1; transform:scale(1); filter:blur(0) brightness(1); }
+  }
   .toast.boss { background:#0a0a0a; border-color:#ff2e4d88; color:#ff2e4d; font-size:15px;
     letter-spacing:.12em; box-shadow:0 10px 40px #000, 0 0 24px #ff2e4d44; }
 
@@ -962,6 +970,7 @@ function defaultSave() {
     vsRec: { wins: 0, losses: 0 },
     teamRec: { wins: 0, losses: 0 },
     bossRec: { attempts: 0, wins: 0, firstWinAttempt: 0 },
+    bossFound: false,
     voidUnlocked: false,
     total: { lines: 0, pieces: 0, bombs: 0, lasers: 0, games: 0, maxCombo: 0, score: 0 },
     ach: {},
@@ -1893,7 +1902,7 @@ function vsEnd(playerWon, reason) {
       if (save.vsCfg.aiLevel === "max") {
         const firstMax = !save.ach.aimaxwin;
         unlockAch("aimaxwin");
-        if (firstMax) setTimeout(() => bossSpeak("……AI対戦の最深部で、何かが目を覚ました。"), 2200);
+        if (firstMax && !save.bossFound) setTimeout(() => bossSpeak("……『さいきょう』の、その先へ。"), 2200);
       }
     }
     persist();
@@ -2183,6 +2192,68 @@ function checkBossEvents() {
     G.bossSpoke = true;
     bossSpeak("……ほう。");
   }
+}
+
+// ---------- 隠しコマンド：さいきょうで＋連打 → 終焉降臨 ----------
+let bossTapCount = 0;
+function bossChargeFx(stepperEl, count) {
+  const val = stepperEl.querySelector(".stepval");
+  // 押すたびに「さいきょう」が深紅に染まり、震え、ノイズが走る
+  val.classList.remove("charge"); void val.offsetWidth; val.classList.add("charge");
+  val.style.textShadow = `0 0 ${4 + count * 5}px #ff2e4d`;
+  const glitch = ["さいきょう", "さいき…う", "さ…きょ…", "……きょう", "…………"];
+  val.textContent = glitch[Math.min(count - 1, glitch.length - 1)];
+  setTimeout(() => { if (!save.bossFound) { val.textContent = "さいきょう"; } }, 320);
+  tone(220 - count * 30, 0.25, "sawtooth", 0.12 + count * 0.03, 0, 60);
+  vib(15 + count * 10);
+  if (count >= 3) redFlash(0.08 * count);
+}
+function redFlash(strength) {
+  const f = document.getElementById("flash");
+  f.style.background = "#ff2e4d";
+  f.animate([{ opacity: strength }, { opacity: 0 }], { duration: 380, easing: "ease-out" });
+  setTimeout(() => { f.style.background = "#fff"; }, 400);
+}
+function bossRevealFx() {
+  save.bossFound = true;
+  persist();
+  SFX.bossDrone(); SFX.awaken();
+  vib([80, 60, 120, 60, 220]);
+  redFlash(0.65);
+  // 画面全体が震える
+  const app = document.getElementById("app");
+  app.animate([
+    { transform: "translate(0,0)" },
+    { transform: "translate(-8px,4px)" }, { transform: "translate(7px,-5px)" },
+    { transform: "translate(-5px,-3px)" }, { transform: "translate(5px,4px)" },
+    { transform: "translate(-3px,2px)" }, { transform: "translate(0,0)" },
+  ], { duration: 700, easing: "ease-out" });
+  updateSettingsUI();
+  const btn = document.getElementById("boss-btn");
+  btn.classList.remove("revealing"); void btn.offsetWidth; btn.classList.add("revealing");
+  // 深紅のパーティクルがボタンから吹き出す
+  setTimeout(() => {
+    const r = btn.getBoundingClientRect();
+    for (let k = 0; k < 26; k++) {
+      const p = document.createElement("div");
+      p.className = "particle";
+      const size = 4 + Math.random() * 8;
+      p.style.width = size + "px"; p.style.height = size + "px";
+      p.style.background = Math.random() < .5 ? "#ff2e4d" : "#8b0020";
+      p.style.boxShadow = "0 0 8px #ff2e4d";
+      p.style.left = r.left + r.width / 2 + "px";
+      p.style.top = r.top + r.height / 2 + "px";
+      document.body.appendChild(p);
+      const ang = Math.random() * Math.PI * 2, dist = 50 + Math.random() * 110;
+      p.animate([
+        { transform: "translate(0,0) scale(1)", opacity: 1 },
+        { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0) rotate(${Math.random() * 540}deg)`, opacity: 0 },
+      ], { duration: 800 + Math.random() * 500, easing: "cubic-bezier(.2,.8,.4,1)" });
+      setTimeout(() => p.remove(), 1350);
+    }
+    btn.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 250);
+  setTimeout(() => bossSpeak("――見つけたか。"), 900);
 }
 
 let bossIntroTimer = null;
@@ -3285,8 +3356,8 @@ function updateSettingsUI() {
     const key = s.dataset.stepper;
     s.querySelector(".stepval").textContent = formatValue(key, scopeObj(s.dataset.scope)[key]);
   });
-  // 終焉：「さいきょう」を倒した者だけがAI対戦の最深部で出会える
-  const bossOn = !!save.ach.aimaxwin;
+  // 終焉：「さいきょう」の先で＋を押し続けた者だけが出会える
+  const bossOn = !!save.bossFound;
   document.getElementById("boss-label").style.display = bossOn ? "block" : "none";
   document.getElementById("boss-btn").style.display = bossOn ? "block" : "none";
   const hall = document.getElementById("boss-hall");
@@ -3325,7 +3396,7 @@ document.addEventListener("click", (e) => {
       case "start-team":   startTeam(); break;
       case "resume-game":  resumeSavedGame(); break;
       case "goto-custom":  updateSettingsUI(); showScreen("custom-screen"); break;
-      case "goto-vs":      updateSettingsUI(); showScreen("vs-screen"); break;
+      case "goto-vs":      bossTapCount = 0; updateSettingsUI(); showScreen("vs-screen"); break;
       case "goto-team":    updateSettingsUI(); showScreen("team-screen"); break;
       case "goto-settings":updateSettingsUI(); showScreen("settings-screen"); break;
       case "goto-menu": case "game-quit": quitToMenu(); break;
@@ -3389,6 +3460,7 @@ document.addEventListener("click", (e) => {
     const key = s.dataset.stepper;
     const values = s.dataset.values.split(",").map(v => isNaN(+v) ? v : +v);
     const obj = scopeObj(s.dataset.scope);
+    const before = obj[key];
     let i = values.indexOf(obj[key]);
     if (i === -1) i = 0;
     i = Math.max(0, Math.min(values.length - 1, i + +stepBtn.dataset.dir));
@@ -3396,6 +3468,16 @@ document.addEventListener("click", (e) => {
     persist();
     if (key === "bgmVol") BGM.refresh();
     updateSettingsUI();
+    // 隠しコマンド：AIの強さ「さいきょう」でさらに＋を押し続けると……
+    if (key === "aiLevel" && s.dataset.scope === "vs" && !save.bossFound) {
+      if (before === "max" && +stepBtn.dataset.dir === 1) {
+        bossTapCount++;
+        bossChargeFx(s, bossTapCount);
+        if (bossTapCount >= 5) { bossTapCount = 0; bossRevealFx(); }
+      } else {
+        bossTapCount = 0;
+      }
+    }
   }
 });
 
