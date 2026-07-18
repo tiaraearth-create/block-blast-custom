@@ -850,7 +850,22 @@
         <div><div class="name">🧪 セルフテスト</div><div class="desc">ゲームロジックの自己診断を実行</div></div>
         <button class="btn small" data-action="self-test">実行</button>
       </div>
+      <div class="setting-row" style="border-color:color-mix(in srgb, var(--bad) 45%, transparent)">
+        <div><div class="name" style="color:var(--bad)">🧨 データの完全リセット</div><div class="desc">実績・戦績・解禁・設定など、すべてを最初の状態に戻す</div></div>
+        <button class="btn small" style="color:var(--bad)" data-action="data-reset">初期化</button>
+      </div>
       <div id="selftest-msg" style="font-size:12px; min-height:16px; text-align:center; font-weight:700"></div>
+    </div>
+
+    <div class="overlay" id="reset-overlay">
+      <div class="panel-card">
+        <div class="big" style="background:none; -webkit-text-fill-color:var(--bad); color:var(--bad)">🧨 完全リセット</div>
+        <div class="info">本当にすべてのデータを消しますか？<br>実績・ベストスコア・終焉の記録・解禁テーマも<br><b style="font-size:16px; display:inline">すべて消えて、元に戻せません。</b></div>
+        <div class="menu-btns" style="width:min(260px,80vw); margin-top:14px">
+          <button class="btn" style="color:var(--bad); border-color:color-mix(in srgb, var(--bad) 50%, transparent)" data-action="data-reset-confirm">消去して初期化する</button>
+          <button class="btn primary" data-action="data-reset-cancel">やめる</button>
+        </div>
+      </div>
     </div>
     <div class="section-label">管理者コード</div>
     <div class="settings-list" style="margin-top:8px">
@@ -2839,6 +2854,25 @@ function applyImport() {
     SFX.invalid();
   }
 }
+function fullDataReset() {
+  try { localStorage.removeItem(STORE_KEY); } catch {}
+  Object.keys(save).forEach(k => delete save[k]);
+  Object.assign(save, defaultSave());
+  // 解禁で追加された隠しテーマの選択肢も消す
+  const voidOpt = document.querySelector('#theme-select option[value="void"]');
+  if (voidOpt) voidOpt.remove();
+  document.body.dataset.theme = save.theme;
+  document.body.classList.remove("awakened");
+  bossTapCount = 0;
+  BGM.refresh();
+  updateSettingsUI();
+  updateMenu();
+  document.getElementById("reset-overlay").classList.remove("active");
+  document.getElementById("selftest-msg").textContent = "";
+  showToast("🧨", "すべてのデータを初期化しました", "完全リセット");
+  SFX.undo(); vib(60);
+}
+
 function runSelfTests() {
   const results = [];
   const t = (name, fn) => { try { results.push([name, !!fn()]); } catch { results.push([name, false]); } };
@@ -3426,6 +3460,9 @@ document.addEventListener("click", (e) => {
       case "data-apply": applyImport(); break;
       case "data-close": document.getElementById("data-overlay").classList.remove("active"); break;
       case "self-test": runSelfTests(); break;
+      case "data-reset": document.getElementById("reset-overlay").classList.add("active"); break;
+      case "data-reset-cancel": document.getElementById("reset-overlay").classList.remove("active"); break;
+      case "data-reset-confirm": fullDataReset(); break;
       case "hint": showHint(); break;
       case "undo": undoMove(); break;
       case "show-howto": document.getElementById("howto-overlay").classList.add("active"); break;
