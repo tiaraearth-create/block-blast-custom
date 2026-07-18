@@ -525,6 +525,8 @@
   @keyframes biName { 0% { opacity:0; transform:scale(1.6); filter:blur(8px); } 100% { opacity:1; transform:scale(1); filter:blur(0); } }
   #board.boss-glare { box-shadow: 0 14px 44px var(--shadow), 0 0 44px #ff2e4d55, inset 0 0 24px #ff2e4d22; }
   .stepval.charge { animation: chargeShake .3s; color:#ff2e4d !important; }
+  .tm.bossed { border-color:#ff2e4d !important; box-shadow:0 0 12px #ff2e4d55; }
+  .tm.bossed .t-name { color:#ff2e4d; }
   @keyframes chargeShake { 0%,100%{transform:translate(0)} 20%{transform:translate(-3px,1px)} 45%{transform:translate(3px,-2px)} 70%{transform:translate(-2px,-1px)} 90%{transform:translate(2px,1px)} }
   .boss-menu-btn.revealing { animation: bossAppear 1.2s cubic-bezier(.22,1,.36,1), bossBreath 3.2s 1.2s ease-in-out infinite; }
   @keyframes bossAppear {
@@ -878,6 +880,22 @@
       </div>
       <div class="god-banner" id="god-banner">👑 ゴッドモード解禁ずみ</div>
     </div>
+
+    <div class="section-label" id="admin-panel-label" style="display:none">👑 管理者パネル</div>
+    <div class="settings-list" id="admin-panel" style="display:none">
+      <div class="setting-row">
+        <div><div class="name">◆ 終焉を強制解禁</div><div class="desc">AI対戦の最深部＋チーム戦の終焉AI＋漆黒テーマを解禁</div></div>
+        <button class="btn small" data-action="admin-unlock-boss">解禁</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="name">🏆 実績をすべて解除</div><div class="desc">全実績を解除ずみにする</div></div>
+        <button class="btn small" data-action="admin-unlock-ach">解除</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="name">✨ すべて解禁</div><div class="desc">ゴッド・終焉・漆黒・実績、ぜんぶまとめて</div></div>
+        <button class="btn small" data-action="admin-unlock-all">全解禁</button>
+      </div>
+    </div>
     <div style="height:24px"></div>
 
     <div class="overlay" id="data-overlay">
@@ -987,6 +1005,7 @@ function defaultSave() {
     bossRec: { attempts: 0, wins: 0, firstWinAttempt: 0 },
     bossFound: false,
     voidUnlocked: false,
+    adminOn: false,
     total: { lines: 0, pieces: 0, bombs: 0, lasers: 0, games: 0, maxCombo: 0, score: 0 },
     ach: {},
     resume: null,
@@ -1034,7 +1053,7 @@ const VALUE_LABELS = {
   prefill: { none: "なし", few: "少し", many: "多め" },
   timeAttack: { 0: "なし", 60: "1分", 120: "2分", 180: "3分" },
   liftMode: { low: "指の近く", mid: "ふつう", high: "高め" },
-  aiLevel: { weak: "よわい", normal: "ふつう", strong: "つよい", max: "さいきょう" },
+  aiLevel: { weak: "よわい", normal: "ふつう", strong: "つよい", max: "さいきょう", boss: "◆ 終焉" },
   aiSpeed: { slow: "ゆっくり", normal: "ふつう", fast: "はやい" },
   winScore: { 0: "サバイバル", 1000: "1000点", 3000: "3000点", 5000: "5000点", 10000: "10000点" },
   sfxVol: { low: "小", mid: "中", high: "大" },
@@ -2271,6 +2290,57 @@ function bossRevealFx() {
   setTimeout(() => bossSpeak("――見つけたか。"), 900);
 }
 
+// ---------- チーム戦への終焉介入 ----------
+// AI対戦で終焉を討伐した者だけが、チーム戦のAIの強さに「◆ 終焉」を選べる
+function teamBossUnlocked() { return !!(save.ach.bosswin || save.bossRec.wins > 0); }
+
+function teamBossSelectFx(stepperEl) {
+  const val = stepperEl.querySelector(".stepval");
+  val.classList.remove("charge"); void val.offsetWidth; val.classList.add("charge");
+  val.style.textShadow = "0 0 18px #ff2e4d";
+  redFlash(.5);
+  SFX.awaken(); SFX.bossDrone(); vib([60, 50, 160]);
+  const app = document.getElementById("app");
+  app.animate([
+    { transform: "translate(0,0)" },
+    { transform: "translate(-7px,4px)" }, { transform: "translate(6px,-4px)" },
+    { transform: "translate(-4px,-2px)" }, { transform: "translate(4px,3px)" }, { transform: "translate(0,0)" },
+  ], { duration: 600, easing: "ease-out" });
+  // ステッパーから深紅のパーティクル
+  const r = stepperEl.getBoundingClientRect();
+  for (let k = 0; k < 18; k++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    const size = 4 + Math.random() * 7;
+    p.style.width = size + "px"; p.style.height = size + "px";
+    p.style.background = Math.random() < .5 ? "#ff2e4d" : "#8b0020";
+    p.style.boxShadow = "0 0 8px #ff2e4d";
+    p.style.left = r.left + r.width / 2 + "px";
+    p.style.top = r.top + r.height / 2 + "px";
+    document.body.appendChild(p);
+    const ang = Math.random() * Math.PI * 2, dist = 40 + Math.random() * 90;
+    p.animate([
+      { transform: "translate(0,0) scale(1)", opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0) rotate(${Math.random() * 540}deg)`, opacity: 0 },
+    ], { duration: 700 + Math.random() * 500, easing: "cubic-bezier(.2,.8,.4,1)" });
+    setTimeout(() => p.remove(), 1250);
+  }
+  setTimeout(() => bossSpeak("――終焉が、チーム戦に介入する。"), 550);
+}
+
+// チーム戦の各AIが終焉の頭脳で考えるためのコンテキスト
+function teamBossCtx(p) {
+  const foes = enemiesOf(p);
+  const top = foes.length ? Math.max(...foes.map(q => q.score)) : 0;
+  return {
+    combo: p.combo,
+    awakened: false,
+    pressure: fillRatioOf(p.board) > .5,
+    finisher: false,
+    behind: top > p.score + 300,
+  };
+}
+
 let bossIntroTimer = null;
 function showBossIntro() {
   const el = document.getElementById("boss-intro");
@@ -2397,20 +2467,27 @@ function startTeam() {
   renderTeam();
   updateTugBar();
   updateGaugeUI();
-  BGM.play("vs");
+  if (save.teamCfg.aiLevel === "boss" && teamBossUnlocked()) {
+    BGM.play("boss");
+    setTimeout(() => bossSpeak("――全AIに、終焉の思考が宿る。"), 700);
+  } else {
+    BGM.play("vs");
+  }
   teamNext();
 }
 
 function buildTeamHud() {
   const row = document.getElementById("team-row");
   row.innerHTML = "";
+  const bossLvl = save.teamCfg.aiLevel === "boss" && teamBossUnlocked();
   const shown = T.players.filter(p => !p.human);
   shown.forEach(p => {
     const card = document.createElement("div");
     card.className = "tm";
     card.dataset.pid = p.id;
     card.style.setProperty("--tmc", teamColor(p));
-    const pe = p.persona ? PERSONAS[p.persona].emoji : "";
+    if (bossLvl) card.classList.add("bossed");
+    const pe = bossLvl ? "◆" : p.persona ? PERSONAS[p.persona].emoji : "";
     card.innerHTML = `
       <div class="t-name">${pe}${p.name}</div>
       <div class="t-score">0</div>
@@ -2520,7 +2597,11 @@ function teamAiMove() {
   const p = T.players[T.turnIdx];
   if (!p || p.human || !p.alive) return;
   if (save.teamCfg.specialMoveOn && p.gauge >= 100) fireSpecial(p);
-  const move = chooseBestMove(p.board, T.size, p.hand, save.teamCfg.aiLevel, p.persona);
+  const useBoss = save.teamCfg.aiLevel === "boss" && teamBossUnlocked();
+  const lvl = save.teamCfg.aiLevel === "boss" && !useBoss ? "max" : save.teamCfg.aiLevel;
+  const move = useBoss
+    ? bossChooseMove(p.board, p.hand, teamBossCtx(p))
+    : chooseBestMove(p.board, T.size, p.hand, lvl, p.persona);
   if (!move) { eliminatePlayer(p); return; }
   const h = p.hand[move.handIdx];
   const res = resolvePlacement(p.board, T.size, h.piece, h.color, move.row, move.col, G.bombRadius);
@@ -3413,6 +3494,9 @@ function updateSettingsUI() {
   }
   ts.value = save.theme;
   document.getElementById("god-banner").classList.toggle("show", save.godUnlocked);
+  // 管理者パネル
+  document.getElementById("admin-panel-label").style.display = save.adminOn ? "block" : "none";
+  document.getElementById("admin-panel").style.display = save.adminOn ? "flex" : "none";
 }
 
 document.addEventListener("click", (e) => {
@@ -3463,6 +3547,29 @@ document.addEventListener("click", (e) => {
       case "data-reset": document.getElementById("reset-overlay").classList.add("active"); break;
       case "data-reset-cancel": document.getElementById("reset-overlay").classList.remove("active"); break;
       case "data-reset-confirm": fullDataReset(); break;
+      case "admin-unlock-boss":
+        save.bossFound = true;
+        save.ach.bosswin = true;
+        save.voidUnlocked = true;
+        persist(); updateSettingsUI(); updateMenu();
+        redFlash(.4); SFX.bossDrone(); vib([60, 40, 120]);
+        showToast("◆", "終焉・チーム戦終焉・漆黒テーマを解禁", "管理者権限");
+        break;
+      case "admin-unlock-ach":
+        ACHIEVEMENTS.forEach(a => { save.ach[a.id] = true; });
+        persist(); updateSettingsUI(); updateMenu();
+        SFX.ach(); vib(40);
+        showToast("🏆", `実績 ${ACHIEVEMENTS.length}種をすべて解除`, "管理者権限");
+        break;
+      case "admin-unlock-all":
+        save.godUnlocked = true;
+        save.bossFound = true;
+        save.voidUnlocked = true;
+        ACHIEVEMENTS.forEach(a => { save.ach[a.id] = true; });
+        persist(); updateSettingsUI(); updateMenu();
+        godFlash(); SFX.god(); vib([50, 80, 50, 80, 150]);
+        showToast("✨", "すべてのコンテンツを解禁しました", "管理者権限");
+        break;
       case "hint": showHint(); break;
       case "undo": undoMove(); break;
       case "show-howto": document.getElementById("howto-overlay").classList.add("active"); break;
@@ -3498,6 +3605,20 @@ document.addEventListener("click", (e) => {
     const values = s.dataset.values.split(",").map(v => isNaN(+v) ? v : +v);
     const obj = scopeObj(s.dataset.scope);
     const before = obj[key];
+    // チーム戦のAIの強さ：終焉討伐ずみなら「さいきょう」の先に「◆ 終焉」が現れる
+    if (key === "aiLevel" && s.dataset.scope === "team") {
+      if (before === "boss") {
+        if (+stepBtn.dataset.dir === -1) { obj[key] = "max"; persist(); updateSettingsUI(); }
+        return; // 終焉より上はない
+      }
+      if (before === "max" && +stepBtn.dataset.dir === 1 && teamBossUnlocked()) {
+        obj[key] = "boss";
+        persist();
+        updateSettingsUI();
+        teamBossSelectFx(s);
+        return;
+      }
+    }
     let i = values.indexOf(obj[key]);
     if (i === -1) i = 0;
     i = Math.max(0, Math.min(values.length - 1, i + +stepBtn.dataset.dir));
@@ -3552,11 +3673,12 @@ function submitAdminCode() {
   const input = document.getElementById("admin-input");
   if (input.value === "123456") {
     input.value = "";
-    if (save.godUnlocked) { flashAdminMsg("ゴッドモードはすでに解禁ずみです", true); return; }
+    if (save.godUnlocked && save.adminOn) { flashAdminMsg("👑 管理者権限はすでに有効です", true); return; }
     save.godUnlocked = true;
+    save.adminOn = true;
     persist();
     updateSettingsUI();
-    flashAdminMsg("👑 ゴッドモード解禁！メニューから遊べます", true);
+    flashAdminMsg("👑 管理者権限を取得！ゴッドモード＋管理者パネル解禁", true);
     godFlash();
     SFX.god(); vib([50, 80, 50, 80, 120]);
   } else {
